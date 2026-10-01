@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>IoT-127 | Sensor Dashboard</title>
+
+    <!-- =====================================================
+         FIREBASE
+    ====================================================== -->
+    <script type="module">
+
+        import { initializeApp }
+        from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+        import {
+            getDatabase,
+            ref,
+            onValue
+        }
+        from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+
+        /* =====================================================
+           Firebase ของคุณ
+           Project ID: iot-127
+        ====================================================== */
+
+        const firebaseConfig = {
+
+            databaseURL:
+                "https://iot-127-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+            projectId:
+                "iot-127"
+
+        };
+
+
+        /* =====================================================
+           เริ่มต้น Firebase
+        ====================================================== */
+
+        const app = initializeApp(firebaseConfig);
+
+        const database = getDatabase(app);
+
+
+        /* =====================================================
+           ตัวแปรสำหรับกราฟ
+        ====================================================== */
+
+        let chartLabels = [];
+
+        let temperatureData = [];
+        let humidityData = [];
+        let airQualityData = [];
+        let lightData = [];
+        let noiseData = [];
+        let pressureData = [];
+
+
+        /* =====================================================
+           DOM
+        ====================================================== */
+
+        const temperatureEl =
+            document.getElementById("temperature");
+
+        const humidityEl =
+            document.getElementById("humidity");
+
+        const airQualityEl =
+            document.getElementById("air_quality");
+
+        const lightEl =
+            document.getElementById("light");
+
+        const noiseEl =
+            document.getElementById("noise");
+
+        const pressureEl =
+            document.getElementById("pressure");
+
+        const connectionStatus =
+            document.getElementById("connectionStatus");
+
+        const statusDot =
+            document.getElementById("statusDot");
+
+        const lastUpdate =
+            document.getElementById("lastUpdate");
+
+        const dataStatus =
+            document.getElementById("dataStatus");
+
+
+        /* =====================================================
+           ฟังก์ชันแปลงตัวเลข
+        ====================================================== */
+
+        function numberValue(value, decimals = 1) {
+
+            if (value === undefined ||
+                value === null ||
+                value === "") {
+
+                return "--";
+            }
+
+            const number = Number(value);
+
+            if (isNaN(number)) {
+                return "--";
+            }
+
+            return number.toFixed(decimals);
+        }
+
+
+        /* =====================================================
+           แสดงสถานะ
+        ====================================================== */
+
+        function setOnline() {
+
+            connectionStatus.textContent =
+                "Firebase Connected";
+
+            statusDot.classList.add("online");
+
+            dataStatus.textContent =
+                "กำลังรับข้อมูลแบบ Realtime";
+        }
+
+
+        function setOffline() {
+
+            connectionStatus.textContent =
+                "Disconnected";
+
+            statusDot.classList.remove("online");
+
+            dataStatus.textContent =
+                "ไม่สามารถเชื่อมต่อ Firebase";
+        }
+
+
+        /* =====================================================
+           Firebase Connection
+        ====================================================== */
+
+        const connectionRef =
+            ref(database, ".info/connected");
+
+
+        onValue(connectionRef, (snapshot) => {
+
+            if (snapshot.val() === true) {
+
+                setOnline();
+
+            } else {
+
+                setOffline();
+
+            }
+
+        });
+
+
+        /* =====================================================
+           อ่านข้อมูล /latest
+        ====================================================== */
+
+        const latestRef =
+            ref(database, "latest");
+
+
+        onValue(
+            latestRef,
+
+            (snapshot) => {
+
+                const data =
+                    snapshot.val();
+
+
+                console.log(
+                    "Firebase latest:",
+                    data
+                );
+
+
+                if (!data) {
+
+                    temperatureEl.textContent =
+                        "-- °C";
+
+                    humidityEl.textContent =
+                        "-- %";
+
+                    airQualityEl.textContent =
+                        "--";
+
+                    lightEl.textContent =
+                        "-- lux";
+
+                    noiseEl.textContent =
+                        "-- dB";
+
+                    pressureEl.textContent =
+                        "-- hPa";
+
+                    dataStatus.textContent =
+                        "ยังไม่มีข้อมูลจาก ESP32";
+
+                    return;
+                }
+
+
+                /* =================================================
+                   Temperature
+                ================================================= */
+
+                if (data.temperature !== undefined) {
+
+                    temperatureEl.textContent =
+                        numberValue(
+                            data.temperature,
+                            1
+                        ) + " °C";
+                }
+
+
+                /* =================================================
+                   Humidity
+                ================================================= */
+
+                if (data.humidity !== undefined) {
+
+                    humidityEl.textContent =
+                        numberValue(
+                            data.humidity,
+                            1
+                        ) + " %";
+                }
+
+
+                /* =================================================
+                   Air Quality
+                ================================================= */
+
+                if (data.air_quality !== undefined) {
+
+                    airQualityEl.textContent =
+                        numberValue(
+                            data.air_quality,
+                            0
+                        );
+                }
+
+
+                /* =================================================
+                   Light
+                ================================================= */
+
+                if (data.light !== undefined) {
+
+                    lightEl.textContent =
+                        numberValue(
+                            data.light,
+                            0
+                        ) + " lux";
+                }
+
+
+                /* =================================================
+                   Noise
+                ================================================= */
+
+                if (data.noise !== undefined) {
+
+                    noiseEl.textContent =
+                        numberValue(
+                            data.noise,
+                            0
+                        ) + " dB";
+                }
+
+
+                /* =================================================
+                   Pressure
+                ================================================= */
+
+                if (data.pressure !== undefined) {
+
+                    pressureEl.textContent =
+                        numberValue(
+                            data.pressure,
+                            1
+                        ) + " hPa";
+                }
+
+
+                /* =================================================
+                   เวลา
+                ================================================= */
+
+                updateLastUpdate(
+                    data.timestamp
+                );
+
+            },
+
+            (error) => {
+
+                console.error(
+                    "Firebase error:",
+                    error
+                );
+
+                connectionStatus.textContent =
+                    "Firebase Error";
+
+                statusDot.classList.remove(
+                    "online"
+                );
+
+                dataStatus.textContent =
+                    "เกิดข้อผิดพลาดในการอ่านข้อมูล";
+            }
+
+        );
+
+
+        /* =====================================================
+           เวลาอัปเดตล่าสุด
+        ====================================================== */
+
+        function updateLastUpdate(timestamp) {
+
+            let date;
+
+            if (timestamp) {
+
+                if (
+                    typeof timestamp === "number" ||
+                    !isNaN(Number(timestamp))
+                ) {
+
+                    date =
+                        new Date(
+                            Number(timestamp)
+                        );
+
+                } else {
+
+                    date =
+                        new Date(timestamp);
+                }
+
+            } else {
+
+                date =
+                    new Date();
+            }
+
+
+            if (isNaN(date.getTime())) {
+
+                lastUpdate.textContent =
+                    String(timestamp);
+
+                return;
+            }
+
+
+            lastUpdate.textContent =
+                date.toLocaleString(
+                    "th-TH",
+                    {
+                        dateStyle: "short",
+                        timeStyle: "medium"
+                    }
+                );
+        }
+
+
+        /* =====================================================
+           อ่าน /history
+        ====================================================== */
+
+        const historyRef =
+            ref(database, "history");
+
+
+        onValue(
+            historyRef,
+
+            (snapshot) => {
+
+                const history =
+                    snapshot.val();
+
+
+                console.log(
+                    "Firebase history:",
+                    history
+                );
+
+
+                if (!history) {
+
+                    return;
+                }
+
+
+                const records = [];
+
+
+                /* =============================================
+                   รองรับ history แบบ object
+                ============================================== */
+
+                Object.keys(history)
+                    .forEach((key) => {
+
+                        const item =
+                            history[key];
+
+
+                        if (
+                            item &&
+                            typeof item === "object"
+                        ) {
+
+                            records.push({
+                                key: key,
+                                ...item
+                            });
+
+                        }
+
+                    });
+
+
+                /* =============================================
+                   เรียงข้อมูล
+                ============================================== */
+
+                records.sort(
+                    (a, b) => {
+
+                        const ta =
+                            getTimestamp(a);
+
+                        const tb =
+                            getTimestamp(b);
+
+                        return ta - tb;
+                    }
+                );
+
+
+                /* =============================================
+                   เอา 30 จุดล่าสุด
+                ============================================== */
+
+                const recent =
+                    records.slice(-30);
+
+
+                chartLabels = [];
+                temperatureData = [];
+                humidityData = [];
+                airQualityData = [];
+                lightData = [];
+                noiseData = [];
+                pressureData = [];
+
+
+                recent.forEach(
+                    (item) => {
+
+                        const date =
+                            getTimestamp(item);
+
+
+                        chartLabels.push(
+                            formatChartTime(date)
+                        );
+
+
+                        temperatureData.push(
+                            getNumber(
+                                item.temperature
+                            )
+                        );
+
+
+                        humidityData.push(
+                            getNumber(
+                                item.humidity
+                            )
+                        );
+
+
+                        airQualityData.push(
+                            getNumber(
+                                item.air_quality
+                            )
+                        );
+
+
+                        lightData.push(
+                            getNumber(
+                                item.light
+                            )
+                        );
+
+
+                        noiseData.push(
+                            getNumber(
+                                item.noise
+                            )
+                        );
+
+
+                        pressureData.push(
+                            getNumber(
+                                item.pressure
+                            )
+                        );
+
+                    }
+                );
+
+
+                drawCharts();
+
+            },
+
+            (error) => {
+
+                console.error(
+                    "History error:",
+                    error
+                );
+
+            }
+
+        );
+
+
+        /* =====================================================
+           ดึง Timestamp
+        ====================================================== */
+
+        function getTimestamp(item) {
+
+            if (!item) {
+
+                return 0;
+            }
+
+
+            let timestamp =
+                item.timestamp;
+
+
+            if (
+                timestamp === undefined ||
+                timestamp === null
+            ) {
+
+                timestamp =
+                    item.time;
+            }
+
+
+            if (
+                timestamp === undefined ||
+                timestamp === null
+            ) {
+
+                timestamp =
+                    Date.now();
+            }
+
+
+            if (
+                typeof timestamp === "number"
+            ) {
+
+                return timestamp;
+            }
+
+
+            if (
+                !isNaN(Number(timestamp))
+            ) {
+
+                return Number(timestamp);
+            }
+
+
+            const parsed =
+                new Date(timestamp)
+                    .getTime();
+
+
+            if (isNaN(parsed)) {
+
+                return Date.now();
+            }
+
+
+            return parsed;
+        }
+
+
+        /* =====================================================
+           ดึงตัวเลข
+        ====================================================== */
+
+        function getNumber(value) {
+
+            if (
+                value === undefined ||
+                value === null ||
+                value === ""
+            ) {
+
+                return null;
+            }
+
+
+            const number =
+                Number(value);
+
+
+            if (isNaN(number)) {
+
+                return null;
+            }
+
+
+            return number;
+        }
+
+
+        /* =====================================================
+           เวลาในกราฟ
+        ====================================================== */
+
+        function formatChartTime(timestamp) {
+
+            const date =
+                new Date(timestamp);
+
+
+            if (isNaN(date.getTime())) {
+
+                return "--";
+            }
+
+
+            return date.toLocaleTimeString(
+                "th-TH",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit"
+                }
+            );
+        }
+
+
+        /* =====================================================
+           สร้างกราฟ
+        ====================================================== */
+
+        function drawCharts() {
+
+            drawChart(
+                "temperatureChart",
+                chartLabels,
+                temperatureData,
+                "Temperature (°C)"
+            );
+
+
+            drawChart(
+                "humidityChart",
+                chartLabels,
+                humidityData,
+                "Humidity (%)"
+            );
+
+
+            drawChart(
+                "airChart",
+                chartLabels,
+                airQualityData,
+                "Air Quality"
+            );
+
+
+            drawChart(
+                "lightChart",
+                chartLabels,
+                lightData,
+                "Light (lux)"
+            );
+
+
+            drawChart(
+                "noiseChart",
+                chartLabels,
+                noiseData,
+                "Noise (dB)"
+            );
+
+
+            drawChart(
+                "pressureChart",
+                chartLabels,
+                pressureData,
+                "Pressure (hPa)"
+            );
+
+        }
+
+
+        /* =====================================================
+           Chart.js
+        ====================================================== */
+
+        function drawChart(
+            canvasId,
+            labels,
+            values,
+            label
+        ) {
+
+            const canvas =
+                document.getElementById(
+                    canvasId
+                );
+
+
+            if (!canvas) {
+
+                return;
+            }
+
+
+            const ctx =
+                canvas.getContext("2d");
+
+
+            if (
+                canvas.chartInstance
+            ) {
+
+                canvas.chartInstance.destroy();
+            }
+
+
+            canvas.chartInstance =
+                new Chart(
+                    ctx,
+                    {
+
+                        type: "line",
+
+                        data: {
+
+                            labels: labels,
+
+                            datasets: [
+
+                                {
+
+                                    label: label,
+
+                                    data: values,
+
+                                    borderWidth: 3,
+
+                                    pointRadius: 3,
+
+                                    tension: 0.35,
+
+                                    spanGaps: true
+                                }
+
+                            ]
+
+                        },
+
+
+                        options: {
+
+                            responsive: true,
+
+                            maintainAspectRatio: false,
+
+                            interaction: {
+
+                                intersect: false,
+
+                                mode: "index"
+                            },
+
+
+                            plugins: {
+
+                                legend: {
+
+                                    display: true
+                                }
+
+                            },
+
+
+                            scales: {
+
+                                x: {
+
+                                    ticks: {
+
+                                        maxTicksLimit: 8
+                                    }
+
+                                },
+
+                                y: {
+
+                                    beginAtZero: false
+                                }
+
+                            }
+
+                        }
+
+                    }
+                );
+
+        }
+
+
+    </script>
+
+
+    <!-- Chart.js -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
+    </script>
+
+
+    <style>
+
+        * {
+
+            box-sizing: border-box;
+
+            margin: 0;
+
+            padding: 0;
+
+        }
+
+
+        body {
+
+            font-family:
+                "Segoe UI",
+                "Noto Sans Thai",
+                Arial,
+                sans-serif;
+
+            min-height: 100vh;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #0f172a 0%,
+                    #172554 50%,
+                    #0f172a 100%
+                );
+
+            color: #ffffff;
+
+        }
+
+
+        /* =====================================================
+           HEADER
+        ====================================================== */
+
+        header {
+
+            padding: 24px 30px;
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            align-items: center;
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.12);
+
+            background:
+                rgba(15,23,42,0.82);
+
+            backdrop-filter:
+                blur(15px);
+
+            position: sticky;
+
+            top: 0;
+
+            z-index: 10;
+
+        }
+
+
+        .brand {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 15px;
+
+        }
+
+
+        .logo {
+
+            width: 58px;
+
+            height: 58px;
+
+            border-radius: 17px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 29px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #06b6d4,
+                    #2563eb
+                );
+
+            box-shadow:
+                0 10px 30px
+                rgba(37,99,235,0.3);
+
+        }
+
+
+        .brand h1 {
+
+            font-size: 25px;
+
+            font-weight: 700;
+
+        }
+
+
+        .brand p {
+
+            color: #94a3b8;
+
+            margin-top: 4px;
+
+            font-size: 13px;
+
+        }
+
+
+        .connection {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 9px;
+
+            padding:
+                10px 16px;
+
+            border-radius: 30px;
+
+            background:
+                rgba(255,255,255,0.07);
+
+            color: #cbd5e1;
+
+            font-size: 13px;
+
+        }
+
+
+        .status-dot {
+
+            width: 10px;
+
+            height: 10px;
+
+            border-radius: 50%;
+
+            background: #ef4444;
+
+        }
+
+
+        .status-dot.online {
+
+            background: #22c55e;
+
+            box-shadow:
+                0 0 12px
+                #22c55e;
+
+        }
+
+
+        /* =====================================================
+           MAIN
+        ====================================================== */
+
+        main {
+
+            max-width: 1400px;
+
+            margin: auto;
+
+            padding: 32px;
+
+        }
+
+
+        .page-title {
+
+            margin-bottom: 22px;
+
+        }
+
+
+        .page-title h2 {
+
+            font-size: 22px;
+
+        }
+
+
+        .page-title p {
+
+            margin-top: 6px;
+
+            color: #94a3b8;
+
+            font-size: 14px;
+
+        }
+
+
+        /* =====================================================
+           SENSOR CARDS
+        ====================================================== */
+
+        .cards {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap: 20px;
+
+        }
+
+
+        .card {
+
+            position: relative;
+
+            overflow: hidden;
+
+            padding: 24px;
+
+            min-height: 175px;
+
+            border-radius: 20px;
+
+            background:
+                rgba(255,255,255,0.075);
+
+            border:
+                1px solid
+                rgba(255,255,255,0.11);
+
+            backdrop-filter:
+                blur(12px);
+
+            transition:
+                transform 0.2s ease,
+                background 0.2s ease;
+
+        }
+
+
+        .card:hover {
+
+            transform:
+                translateY(-4px);
+
+            background:
+                rgba(255,255,255,0.11);
+
+        }
+
+
+        .card-top {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            align-items: center;
+
+        }
+
+
+        .card-title {
+
+            color: #cbd5e1;
+
+            font-size: 14px;
+
+        }
+
+
+        .icon {
+
+            font-size: 31px;
+
+        }
+
+
+        .value {
+
+            margin-top: 19px;
+
+            font-size: 34px;
+
+            font-weight: 700;
+
+            letter-spacing: -1px;
+
+        }
+
+
+        .thai-name {
+
+            margin-top: 7px;
+
+            color: #64748b;
+
+            font-size: 13px;
+
+        }
+
+
+        /* =====================================================
+           STATUS
+        ====================================================== */
+
+        .status-panel {
+
+            margin-top: 25px;
+
+            padding: 20px;
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap: 20px;
+
+            border-radius: 20px;
+
+            background:
+                rgba(255,255,255,0.06);
+
+            border:
+                1px solid
+                rgba(255,255,255,0.1);
+
+        }
+
+
+        .status-item span {
+
+            display: block;
+
+        }
+
+
+        .status-label {
+
+            color: #64748b;
+
+            font-size: 12px;
+
+            margin-bottom: 5px;
+
+        }
+
+
+        .status-value {
+
+            color: #e2e8f0;
+
+            font-size: 15px;
+
+        }
+
+
+        /* =====================================================
+           CHARTS
+        ====================================================== */
+
+        .charts-title {
+
+            margin-top: 35px;
+
+            margin-bottom: 18px;
+
+        }
+
+
+        .charts-title h2 {
+
+            font-size: 21px;
+
+        }
+
+
+        .charts-title p {
+
+            color: #94a3b8;
+
+            font-size: 13px;
+
+            margin-top: 5px;
+
+        }
+
+
+        .charts {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(2, 1fr);
+
+            gap: 20px;
+
+        }
+
+
+        .chart-card {
+
+            height: 320px;
+
+            padding: 20px;
+
+            border-radius: 20px;
+
+            background:
+                rgba(255,255,255,0.06);
+
+            border:
+                1px solid
+                rgba(255,255,255,0.1);
+
+        }
+
+
+        .chart-card h3 {
+
+            font-size: 15px;
+
+            margin-bottom: 10px;
+
+            color: #cbd5e1;
+
+        }
+
+
+        .chart {
+
+            height: 255px;
+
+            position: relative;
+
+        }
+
+
+        /* =====================================================
+           FOOTER
+        ====================================================== */
+
+        footer {
+
+            text-align: center;
+
+            padding: 30px;
+
+            color: #64748b;
+
+            font-size: 12px;
+
+        }
+
+
+        /* =====================================================
+           RESPONSIVE
+        ====================================================== */
+
+        @media (max-width: 1000px) {
+
+            .cards {
+
+                grid-template-columns:
+                    repeat(2, 1fr);
+
+            }
+
+            .charts {
+
+                grid-template-columns:
+                    1fr;
+
+            }
+
+        }
+
+
+        @media (max-width: 650px) {
+
+            header {
+
+                padding: 18px;
+
+                flex-direction:
+                    column;
+
+                align-items:
+                    flex-start;
+
+                gap: 15px;
+
+            }
+
+
+            .brand h1 {
+
+                font-size: 20px;
+
+            }
+
+
+            main {
+
+                padding: 20px;
+
+            }
+
+
+            .cards {
+
+                grid-template-columns:
+                    1fr;
+
+            }
+
+
+            .status-panel {
+
+                grid-template-columns:
+                    1fr;
+
+            }
+
+
+            .chart-card {
+
+                height: 290px;
+
+            }
+
+
+            .chart {
+
+                height: 225px;
+
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <header>
+
+        <div class="brand">
+
+            <div class="logo">
+                📡
+            </div>
+
+            <div>
+
+                <h1>
+                    IoT Sensor Dashboard
+                </h1>
+
+                <p>
+                    ESP32 • ESPHome • Firebase Realtime Database
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="connection">
+
+            <span
+                id="statusDot"
+                class="status-dot">
+            </span>
+
+            <span
+                id="connectionStatus">
+                Connecting...
+            </span>
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main>
+
+
+        <div class="page-title">
+
+            <h2>
+                📊 Sensor Monitoring
+            </h2>
+
+            <p>
+                ระบบตรวจสอบข้อมูลเซ็นเซอร์แบบ Realtime
+            </p>
+
+        </div>
+
+
+        <!-- =================================================
+             SENSOR CARDS
+        ================================================== -->
+
+        <div class="cards">
+
+
+            <!-- Temperature -->
+
+            <div class="card">
+
+                <div class="card-top">
+
+                    <span class="card-title">
+                        Temperature
+                    </span>
+
+                    <span class="icon">
+                        🌡️
+                    </span>
+
+                </div>
+
+                <div
+                    id="temperature"
+                    class="value">
+
+                    -- °C
+
+                </div>
+
+                <div class="thai-name">
+                    อุณหภูมิ
+                </div>
+
+            </div>
+
+
+            <!-- Humidity -->
+
+            <div class="card">
+
+                <div class="card-top">
+
+                    <span class="card-title">
+                        Humidity
+                    </span>
+
+                    <span class="icon">
+                        💧
+                    </span>
+
+                </div>
+
+                <div
+                    id="humidity"
+                    class="value">
+
+                    -- %
+
+                </div>
+
+                <div class="thai-name">
+                    ความชื้นสัมพัทธ์
+                </div>
+
+            </div>
+
+
+            <!-- Air Quality -->
+
+            <div class="card">
+
+                <div class="card-top">
+
+                    <span class="card-title">
+                        Air Quality
+                    </span>
+
+                    <span class="icon">
+                        🌫️
+                    </span>
+
+                </div>
+
+                <div
+                    id="air_quality"
+                    class="value">
+
+                    --
+
+                </div>
+
+                <div class="thai-name">
+                    คุณภาพอากาศ
+                </div>
+
+            </div>
+
+
+            <!-- Light -->
+
+            <div class="card">
+
+                <div class="card-top">
+
+                    <span class="card-title">
+                        Light
+                    </span>
+
+                    <span class="icon">
+                        💡
+                    </span>
+
+                </div>
+
+                <div
+                    id="light"
+                    class="value">
+
+                    -- lux
+
+                </div>
+
+                <div class="thai-name">
+                    ความเข้มแสง
+                </div>
+
+            </div>
+
+
+            <!-- Noise -->
+
+            <div class="card">
+
+                <div class="card-top">
+
+                    <span class="card-title">
+                        Noise
+                    </span>
+
+                    <span class="icon">
+                        🔊
+                    </span>
+
+                </div>
+
+                <div
+                    id="noise"
+                    class="value">
+
+                    -- dB
+
+                </div>
+
+                <div class="thai-name">
+                    ระดับเสียง
+                </div>
+
+            </div>
+
+
+            <!-- Pressure -->
+
+            <div class="card">
+
+                <div class="card-top">
+
+                    <span class="card-title">
+                        Pressure
+                    </span>
+
+                    <span class="icon">
+                        🧭
+                    </span>
+
+                </div>
+
+                <div
+                    id="pressure"
+                    class="value">
+
+                    -- hPa
+
+                </div>
+
+                <div class="thai-name">
+                    ความดันอากาศ
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             SYSTEM STATUS
+        ================================================== -->
+
+        <div class="status-panel">
+
+
+            <div class="status-item">
+
+                <span class="status-label">
+                    DATABASE
+                </span>
+
+                <span class="status-value">
+                    iot-127
+                </span>
+
+            </div>
+
+
+            <div class="status-item">
+
+                <span class="status-label">
+                    DATA PATH
+                </span>
+
+                <span class="status-value">
+                    /latest
+                </span>
+
+            </div>
+
+
+            <div class="status-item">
+
+                <span class="status-label">
+                    STATUS
+                </span>
+
+                <span
+                    id="dataStatus"
+                    class="status-value">
+
+                    กำลังเชื่อมต่อ...
+
+                </span>
+
+            </div>
+
+
+            <div class="status-item">
+
+                <span class="status-label">
+                    LAST UPDATE
+                </span>
+
+                <span
+                    id="lastUpdate"
+                    class="status-value">
+
+                    --
+
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             HISTORY
+        ================================================== -->
+
+        <div class="charts-title">
+
+            <h2>
+                📈 Sensor History
+            </h2>
+
+            <p>
+                แสดงข้อมูลย้อนหลังจาก Firebase /history
+            </p>
+
+        </div>
+
+
+        <div class="charts">
+
+
+            <!-- Temperature Chart -->
+
+            <div class="chart-card">
+
+                <h3>
+                    🌡️ Temperature
+                </h3>
+
+                <div class="chart">
+
+                    <canvas
+                        id="temperatureChart">
+                    </canvas>
+
+                </div>
+
+            </div>
+
+
+            <!-- Humidity Chart -->
+
+            <div class="chart-card">
+
+                <h3>
+                    💧 Humidity
+                </h3>
+
+                <div class="chart">
+
+                    <canvas
+                        id="humidityChart">
+                    </canvas>
+
+                </div>
+
+            </div>
+
+
+            <!-- Air Quality Chart -->
+
+            <div class="chart-card">
+
+                <h3>
+                    🌫️ Air Quality
+                </h3>
+
+                <div class="chart">
+
+                    <canvas
+                        id="airChart">
+                    </canvas>
+
+                </div>
+
+            </div>
+
+
+            <!-- Light Chart -->
+
+            <div class="chart-card">
+
+                <h3>
+                    💡 Light
+                </h3>
+
+                <div class="chart">
+
+                    <canvas
+                        id="lightChart">
+                    </canvas>
+
+                </div>
+
+            </div>
+
+
+            <!-- Noise Chart -->
+
+            <div class="chart-card">
+
+                <h3>
+                    🔊 Noise
+                </h3>
+
+                <div class="chart">
+
+                    <canvas
+                        id="noiseChart">
+                    </canvas>
+
+                </div>
+
+            </div>
+
+
+            <!-- Pressure Chart -->
+
+            <div class="chart-card">
+
+                <h3>
+                    🧭 Pressure
+                </h3>
+
+                <div class="chart">
+
+                    <canvas
+                        id="pressureChart">
+                    </canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </main>
+
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
+
+    <footer>
+
+        ESP32 IoT Monitoring System
+        •
+        ESPHome
+        •
+        Firebase RTDB
+        •
+        GitHub Pages
+
+    </footer>
+
+
+</body>
+
+</html>
