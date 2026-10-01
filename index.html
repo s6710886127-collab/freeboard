@@ -10,7 +10,16 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>IoT-127 | Pastel Sensor Dashboard</title>
+    <title>IoT-127 | Pastel Garden Dashboard</title>
+
+
+    <!-- =====================================================
+         CHART.JS
+    ====================================================== -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
+    </script>
 
 
     <!-- =====================================================
@@ -22,7 +31,6 @@
         import { initializeApp }
         from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-
         import {
             getDatabase,
             ref,
@@ -32,7 +40,7 @@
 
 
         /* =====================================================
-           FIREBASE ของคุณ
+           FIREBASE CONFIG
         ====================================================== */
 
         const firebaseConfig = {
@@ -47,7 +55,7 @@
 
 
         /* =====================================================
-           เริ่ม Firebase
+           FIREBASE START
         ====================================================== */
 
         const app =
@@ -79,6 +87,26 @@
         const pressureEl =
             document.getElementById("pressure");
 
+
+        const temperatureTrend =
+            document.getElementById("temperatureTrend");
+
+        const humidityTrend =
+            document.getElementById("humidityTrend");
+
+        const airTrend =
+            document.getElementById("airTrend");
+
+        const lightTrend =
+            document.getElementById("lightTrend");
+
+        const noiseTrend =
+            document.getElementById("noiseTrend");
+
+        const pressureTrend =
+            document.getElementById("pressureTrend");
+
+
         const connectionStatus =
             document.getElementById("connectionStatus");
 
@@ -90,6 +118,39 @@
 
         const lastUpdate =
             document.getElementById("lastUpdate");
+
+        const digitalClock =
+            document.getElementById("digitalClock");
+
+        const comfortTitle =
+            document.getElementById("comfortTitle");
+
+        const comfortText =
+            document.getElementById("comfortText");
+
+        const comfortEmoji =
+            document.getElementById("comfortEmoji");
+
+
+        /* =====================================================
+           PREVIOUS VALUES
+        ====================================================== */
+
+        let previousValues = {
+
+            temperature: null,
+
+            humidity: null,
+
+            air_quality: null,
+
+            light: null,
+
+            noise: null,
+
+            pressure: null
+
+        };
 
 
         /* =====================================================
@@ -112,18 +173,53 @@
 
 
         /* =====================================================
-           CONNECTION STATUS
+           LIVE CLOCK
+        ====================================================== */
+
+        function updateClock() {
+
+            const now =
+                new Date();
+
+            digitalClock.textContent =
+                now.toLocaleTimeString(
+                    "th-TH",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit"
+                    }
+                );
+
+        }
+
+        updateClock();
+
+        setInterval(
+            updateClock,
+            1000
+        );
+
+
+        /* =====================================================
+           FIREBASE CONNECTION
         ====================================================== */
 
         const connectionRef =
-            ref(database, ".info/connected");
+            ref(
+                database,
+                ".info/connected"
+            );
 
 
         onValue(
             connectionRef,
+
             (snapshot) => {
 
-                if (snapshot.val() === true) {
+                if (
+                    snapshot.val() === true
+                ) {
 
                     connectionStatus.textContent =
                         "Firebase Connected";
@@ -132,7 +228,12 @@
                         "online"
                     );
 
-                } else {
+                    dataStatus.textContent =
+                        "กำลังรับข้อมูลแบบ Realtime";
+
+                }
+
+                else {
 
                     connectionStatus.textContent =
                         "Disconnected";
@@ -141,18 +242,210 @@
                         "online"
                     );
 
+                    dataStatus.textContent =
+                        "กำลังรอการเชื่อมต่อ";
+
                 }
 
             }
+
         );
 
 
         /* =====================================================
-           LATEST DATA
+           NUMBER FORMAT
+        ====================================================== */
+
+        function numberValue(
+            value,
+            decimals = 1
+        ) {
+
+            if (
+                value === undefined ||
+                value === null ||
+                value === ""
+            ) {
+
+                return null;
+
+            }
+
+
+            const number =
+                Number(value);
+
+
+            if (
+                Number.isNaN(number)
+            ) {
+
+                return null;
+
+            }
+
+
+            return Number(
+                number.toFixed(decimals)
+            );
+
+        }
+
+
+        /* =====================================================
+           TREND
+        ====================================================== */
+
+        function updateTrend(
+            element,
+            current,
+            previous
+        ) {
+
+            if (
+                current === null ||
+                previous === null
+            ) {
+
+                element.textContent =
+                    "• รอข้อมูล";
+
+                element.className =
+                    "trend neutral";
+
+                return;
+
+            }
+
+
+            const difference =
+                current - previous;
+
+
+            if (
+                Math.abs(difference) < 0.05
+            ) {
+
+                element.textContent =
+                    "→ คงที่";
+
+                element.className =
+                    "trend neutral";
+
+            }
+
+            else if (
+                difference > 0
+            ) {
+
+                element.textContent =
+                    "↗ เพิ่มขึ้น";
+
+                element.className =
+                    "trend up";
+
+            }
+
+            else {
+
+                element.textContent =
+                    "↘ ลดลง";
+
+                element.className =
+                    "trend down";
+
+            }
+
+        }
+
+
+        /* =====================================================
+           COMFORT
+        ====================================================== */
+
+        function updateComfort(
+            temperature,
+            humidity
+        ) {
+
+            if (
+                temperature === null ||
+                humidity === null
+            ) {
+
+                comfortEmoji.textContent =
+                    "🌷";
+
+                comfortTitle.textContent =
+                    "กำลังรอข้อมูล";
+
+                comfortText.textContent =
+                    "ระบบกำลังเตรียมข้อมูลสภาพแวดล้อม";
+
+                return;
+
+            }
+
+
+            if (
+                temperature >= 24 &&
+                temperature <= 30 &&
+                humidity >= 45 &&
+                humidity <= 70
+            ) {
+
+                comfortEmoji.textContent =
+                    "🌸";
+
+                comfortTitle.textContent =
+                    "สภาพแวดล้อมกำลังดี";
+
+                comfortText.textContent =
+                    "อุณหภูมิและความชื้นอยู่ในช่วงที่สบาย";
+
+            }
+
+            else if (
+                temperature > 30 ||
+                humidity > 75
+            ) {
+
+                comfortEmoji.textContent =
+                    "☀️";
+
+                comfortTitle.textContent =
+                    "ค่อนข้างร้อนหรือชื้น";
+
+                comfortText.textContent =
+                    "ลองเพิ่มการระบายอากาศเพื่อความสบาย";
+
+            }
+
+            else {
+
+                comfortEmoji.textContent =
+                    "☁️";
+
+                comfortTitle.textContent =
+                    "อากาศค่อนข้างเย็น";
+
+                comfortText.textContent =
+                    "อุณหภูมิค่อนข้างต่ำเมื่อเทียบกับช่วงสบาย";
+
+            }
+
+        }
+
+
+        /* =====================================================
+           LATEST
         ====================================================== */
 
         const latestRef =
-            ref(database, "latest");
+            ref(
+                database,
+                "latest"
+            );
 
 
         onValue(
@@ -165,7 +458,7 @@
 
 
                 console.log(
-                    "Latest:",
+                    "Firebase latest:",
                     data
                 );
 
@@ -199,125 +492,206 @@
 
 
                 /* =================================================
-                   TEMPERATURE
+                   CURRENT VALUES
+                ================================================== */
+
+                const temperature =
+                    numberValue(
+                        data.temperature,
+                        1
+                    );
+
+                const humidity =
+                    numberValue(
+                        data.humidity,
+                        1
+                    );
+
+                const airQuality =
+                    numberValue(
+                        data.air_quality,
+                        0
+                    );
+
+                const light =
+                    numberValue(
+                        data.light,
+                        0
+                    );
+
+                const noise =
+                    numberValue(
+                        data.noise,
+                        0
+                    );
+
+                const pressure =
+                    numberValue(
+                        data.pressure,
+                        1
+                    );
+
+
+                /* =================================================
+                   DISPLAY
                 ================================================== */
 
                 if (
-                    data.temperature !== undefined &&
-                    data.temperature !== null
+                    temperature !== null
                 ) {
 
                     temperatureEl.textContent =
-                        Number(
-                            data.temperature
-                        ).toFixed(1)
-                        + " °C";
+                        temperature + " °C";
 
                 }
 
 
-                /* =================================================
-                   HUMIDITY
-                ================================================== */
-
                 if (
-                    data.humidity !== undefined &&
-                    data.humidity !== null
+                    humidity !== null
                 ) {
 
                     humidityEl.textContent =
-                        Number(
-                            data.humidity
-                        ).toFixed(1)
-                        + " %";
+                        humidity + " %";
 
                 }
 
 
-                /* =================================================
-                   AIR QUALITY
-                ================================================== */
-
                 if (
-                    data.air_quality !== undefined &&
-                    data.air_quality !== null
+                    airQuality !== null
                 ) {
 
                     airQualityEl.textContent =
-                        Number(
-                            data.air_quality
-                        ).toFixed(0);
+                        airQuality;
 
                 }
 
 
-                /* =================================================
-                   LIGHT
-                ================================================== */
-
                 if (
-                    data.light !== undefined &&
-                    data.light !== null
+                    light !== null
                 ) {
 
                     lightEl.textContent =
-                        Number(
-                            data.light
-                        ).toFixed(0)
-                        + " lux";
+                        light + " lux";
 
                 }
 
 
-                /* =================================================
-                   NOISE
-                ================================================== */
-
                 if (
-                    data.noise !== undefined &&
-                    data.noise !== null
+                    noise !== null
                 ) {
 
                     noiseEl.textContent =
-                        Number(
-                            data.noise
-                        ).toFixed(0)
-                        + " dB";
+                        noise + " dB";
 
                 }
 
 
-                /* =================================================
-                   PRESSURE
-                ================================================== */
-
                 if (
-                    data.pressure !== undefined &&
-                    data.pressure !== null
+                    pressure !== null
                 ) {
 
                     pressureEl.textContent =
-                        Number(
-                            data.pressure
-                        ).toFixed(1)
-                        + " hPa";
+                        pressure + " hPa";
 
                 }
 
 
                 /* =================================================
-                   LAST UPDATE
+                   TREND
                 ================================================== */
 
-                if (data.timestamp) {
+                updateTrend(
+                    temperatureTrend,
+                    temperature,
+                    previousValues.temperature
+                );
 
-                    updateTime(
+
+                updateTrend(
+                    humidityTrend,
+                    humidity,
+                    previousValues.humidity
+                );
+
+
+                updateTrend(
+                    airTrend,
+                    airQuality,
+                    previousValues.air_quality
+                );
+
+
+                updateTrend(
+                    lightTrend,
+                    light,
+                    previousValues.light
+                );
+
+
+                updateTrend(
+                    noiseTrend,
+                    noise,
+                    previousValues.noise
+                );
+
+
+                updateTrend(
+                    pressureTrend,
+                    pressure,
+                    previousValues.pressure
+                );
+
+
+                /* =================================================
+                   SAVE PREVIOUS
+                ================================================== */
+
+                previousValues.temperature =
+                    temperature;
+
+                previousValues.humidity =
+                    humidity;
+
+                previousValues.air_quality =
+                    airQuality;
+
+                previousValues.light =
+                    light;
+
+                previousValues.noise =
+                    noise;
+
+                previousValues.pressure =
+                    pressure;
+
+
+                /* =================================================
+                   COMFORT
+                ================================================== */
+
+                updateComfort(
+                    temperature,
+                    humidity
+                );
+
+
+                /* =================================================
+                   TIME
+                ================================================== */
+
+                if (
+                    data.timestamp
+                ) {
+
+                    updateLastUpdate(
                         data.timestamp
                     );
 
-                } else {
+                }
 
-                    updateTime(
+                else {
+
+                    updateLastUpdate(
                         Date.now()
                     );
 
@@ -325,7 +699,14 @@
 
 
                 dataStatus.textContent =
-                    "กำลังรับข้อมูลแบบ Realtime";
+                    "ข้อมูลอัปเดตแล้วแบบ Realtime";
+
+
+                /* =================================================
+                   PULSE CARDS
+                ================================================== */
+
+                pulseCards();
 
             },
 
@@ -344,7 +725,7 @@
                 );
 
                 dataStatus.textContent =
-                    "เกิดข้อผิดพลาดในการเชื่อมต่อ";
+                    "เกิดข้อผิดพลาดในการอ่านข้อมูล";
 
             }
 
@@ -352,10 +733,12 @@
 
 
         /* =====================================================
-           UPDATE TIME
+           LAST UPDATE
         ====================================================== */
 
-        function updateTime(timestamp) {
+        function updateLastUpdate(
+            timestamp
+        ) {
 
             let date;
 
@@ -365,10 +748,14 @@
             ) {
 
                 date =
-                    new Date(timestamp);
+                    new Date(
+                        timestamp
+                    );
 
-            } else if (
-                !isNaN(
+            }
+
+            else if (
+                !Number.isNaN(
                     Number(timestamp)
                 )
             ) {
@@ -378,16 +765,20 @@
                         Number(timestamp)
                     );
 
-            } else {
+            }
+
+            else {
 
                 date =
-                    new Date(timestamp);
+                    new Date(
+                        timestamp
+                    );
 
             }
 
 
             if (
-                isNaN(
+                Number.isNaN(
                     date.getTime()
                 )
             ) {
@@ -413,11 +804,47 @@
 
 
         /* =====================================================
+           CARD PULSE
+        ====================================================== */
+
+        function pulseCards() {
+
+            const cards =
+                document.querySelectorAll(
+                    ".sensor-card"
+                );
+
+
+            cards.forEach(
+                (card) => {
+
+                    card.classList.remove(
+                        "data-pulse"
+                    );
+
+
+                    void card.offsetWidth;
+
+
+                    card.classList.add(
+                        "data-pulse"
+                    );
+
+                }
+            );
+
+        }
+
+
+        /* =====================================================
            HISTORY
         ====================================================== */
 
         const historyRef =
-            ref(database, "history");
+            ref(
+                database,
+                "history"
+            );
 
 
         onValue(
@@ -430,7 +857,7 @@
 
 
                 console.log(
-                    "History:",
+                    "Firebase history:",
                     history
                 );
 
@@ -458,20 +885,18 @@
                                 typeof item === "object"
                             ) {
 
-                                records.push({
-                                    key: key,
-                                    ...item
-                                });
+                                records.push(
+                                    {
+                                        key,
+                                        ...item
+                                    }
+                                );
 
                             }
 
                         }
                     );
 
-
-                /* =================================================
-                   SORT BY TIME
-                ================================================== */
 
                 records.sort(
                     (a, b) => {
@@ -485,10 +910,6 @@
                     }
                 );
 
-
-                /* =================================================
-                   LAST 30 RECORDS
-                ================================================== */
 
                 const recent =
                     records.slice(-30);
@@ -585,10 +1006,12 @@
 
 
         /* =====================================================
-           GET TIMESTAMP
+           TIMESTAMP
         ====================================================== */
 
-        function getTimestamp(item) {
+        function getTimestamp(
+            item
+        ) {
 
             if (!item) {
 
@@ -632,7 +1055,7 @@
 
 
             if (
-                !isNaN(
+                !Number.isNaN(
                     Number(timestamp)
                 )
             ) {
@@ -649,7 +1072,7 @@
 
 
             if (
-                isNaN(parsed)
+                Number.isNaN(parsed)
             ) {
 
                 return Date.now();
@@ -663,10 +1086,12 @@
 
 
         /* =====================================================
-           GET NUMBER
+           NUMBER
         ====================================================== */
 
-        function getNumber(value) {
+        function getNumber(
+            value
+        ) {
 
             if (
                 value === undefined ||
@@ -684,7 +1109,7 @@
 
 
             if (
-                isNaN(number)
+                Number.isNaN(number)
             ) {
 
                 return null;
@@ -706,11 +1131,13 @@
         ) {
 
             const date =
-                new Date(timestamp);
+                new Date(
+                    timestamp
+                );
 
 
             if (
-                isNaN(
+                Number.isNaN(
                     date.getTime()
                 )
             ) {
@@ -733,7 +1160,7 @@
 
 
         /* =====================================================
-           DRAW ALL CHARTS
+           CHARTS
         ====================================================== */
 
         function drawAllCharts() {
@@ -742,7 +1169,9 @@
                 "temperatureChart",
                 chartLabels,
                 temperatureData,
-                "Temperature (°C)"
+                "Temperature (°C)",
+                "#f3a6b8",
+                "rgba(243,166,184,0.20)"
             );
 
 
@@ -750,7 +1179,9 @@
                 "humidityChart",
                 chartLabels,
                 humidityData,
-                "Humidity (%)"
+                "Humidity (%)",
+                "#84cfe8",
+                "rgba(132,207,232,0.20)"
             );
 
 
@@ -758,7 +1189,9 @@
                 "airChart",
                 chartLabels,
                 airQualityData,
-                "Air Quality"
+                "Air Quality",
+                "#bba7e8",
+                "rgba(187,167,232,0.20)"
             );
 
 
@@ -766,7 +1199,9 @@
                 "lightChart",
                 chartLabels,
                 lightData,
-                "Light (lux)"
+                "Light (lux)",
+                "#f3c96b",
+                "rgba(243,201,107,0.20)"
             );
 
 
@@ -774,7 +1209,9 @@
                 "noiseChart",
                 chartLabels,
                 noiseData,
-                "Noise (dB)"
+                "Noise (dB)",
+                "#8ccfae",
+                "rgba(140,207,174,0.20)"
             );
 
 
@@ -782,21 +1219,21 @@
                 "pressureChart",
                 chartLabels,
                 pressureData,
-                "Pressure (hPa)"
+                "Pressure (hPa)",
+                "#a998d8",
+                "rgba(169,152,216,0.20)"
             );
 
         }
 
 
-        /* =====================================================
-           DRAW CHART
-        ====================================================== */
-
         function drawChart(
             canvasId,
             labels,
             values,
-            label
+            label,
+            borderColor,
+            backgroundColor
         ) {
 
             const canvas =
@@ -837,34 +1274,37 @@
 
                         data: {
 
-                            labels: labels,
+                            labels,
 
 
                             datasets: [
 
                                 {
 
-                                    label: label,
+                                    label,
 
                                     data: values,
+
+                                    borderColor,
+
+                                    backgroundColor,
 
                                     borderWidth: 3,
 
                                     pointRadius: 4,
 
-                                    pointHoverRadius: 6,
+                                    pointHoverRadius: 7,
 
-                                    tension: 0.4,
+                                    pointBackgroundColor:
+                                        "#ffffff",
 
-                                    spanGaps: true,
+                                    pointBorderWidth: 3,
 
-                                    borderColor:
-                                        "#b9a7d9",
+                                    tension: 0.42,
 
-                                    backgroundColor:
-                                        "rgba(185,167,217,0.18)",
+                                    fill: true,
 
-                                    fill: true
+                                    spanGaps: true
 
                                 }
 
@@ -878,6 +1318,15 @@
                             responsive: true,
 
                             maintainAspectRatio: false,
+
+
+                            animation: {
+
+                                duration: 900,
+
+                                easing: "easeOutQuart"
+
+                            },
 
 
                             interaction: {
@@ -898,14 +1347,13 @@
                                     labels: {
 
                                         color:
-                                            "#80768e",
+                                            "#7d7489",
 
-                                        font: {
+                                        usePointStyle:
+                                            true,
 
-                                            family:
-                                                "Segoe UI"
-
-                                        }
+                                        pointStyle:
+                                            "circle"
 
                                     }
 
@@ -921,16 +1369,18 @@
                                     grid: {
 
                                         color:
-                                            "rgba(180,160,190,0.12)"
+                                            "rgba(160,140,180,0.10)"
 
                                     },
+
 
                                     ticks: {
 
                                         color:
                                             "#aaa1b5",
 
-                                        maxTicksLimit: 8
+                                        maxTicksLimit:
+                                            8
 
                                     }
 
@@ -942,9 +1392,10 @@
                                     grid: {
 
                                         color:
-                                            "rgba(180,160,190,0.12)"
+                                            "rgba(160,140,180,0.10)"
 
                                     },
+
 
                                     ticks: {
 
@@ -964,31 +1415,175 @@
 
         }
 
+
+        /* =====================================================
+           DECORATIVE FLOATING SHAPES
+        ====================================================== */
+
+        const decorations = [
+
+            "✦",
+
+            "✧",
+
+            "♡",
+
+            "❀",
+
+            "·",
+
+            "✿"
+
+        ];
+
+
+        function createDecoration() {
+
+            const item =
+                document.createElement(
+                    "div"
+                );
+
+
+            item.className =
+                "floating-decoration";
+
+
+            item.textContent =
+                decorations[
+                    Math.floor(
+                        Math.random() *
+                        decorations.length
+                    )
+                ];
+
+
+            item.style.left =
+                Math.random() * 100 + "%";
+
+
+            item.style.animationDuration =
+                (9 + Math.random() * 8)
+                + "s";
+
+
+            item.style.animationDelay =
+                (Math.random() * 5)
+                + "s";
+
+
+            item.style.fontSize =
+                (12 + Math.random() * 16)
+                + "px";
+
+
+            document.body.appendChild(
+                item
+            );
+
+
+            setTimeout(
+                () => {
+
+                    item.remove();
+
+                },
+                18000
+            );
+
+        }
+
+
+        for (
+            let i = 0;
+            i < 12;
+            i++
+        ) {
+
+            createDecoration();
+
+        }
+
+
+        setInterval(
+            createDecoration,
+            1700
+        );
+
+
     </script>
 
 
     <!-- =====================================================
-         CHART.JS
-    ====================================================== -->
-
-    <script
-        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
-    </script>
-
-
-    <!-- =====================================================
-         PASTEL STYLE
+         STYLE
     ====================================================== -->
 
     <style>
 
+        :root {
+
+            --pink:
+                #f3a6b8;
+
+            --pink-soft:
+                #fff0f5;
+
+            --blue:
+                #84cfe8;
+
+            --blue-soft:
+                #edfaff;
+
+            --purple:
+                #bba7e8;
+
+            --purple-soft:
+                #f4efff;
+
+            --yellow:
+                #f3c96b;
+
+            --yellow-soft:
+                #fff9e8;
+
+            --green:
+                #8ccfae;
+
+            --green-soft:
+                #effaf4;
+
+            --text:
+                #686178;
+
+            --text-soft:
+                #aaa2b0;
+
+            --white:
+                #ffffff;
+
+        }
+
+
+        /* =====================================================
+           RESET
+        ====================================================== */
+
         * {
 
-            box-sizing: border-box;
+            box-sizing:
+                border-box;
 
             margin: 0;
 
             padding: 0;
+
+        }
+
+
+        html {
+
+            scroll-behavior:
+                smooth;
 
         }
 
@@ -1001,17 +1596,182 @@
                 Arial,
                 sans-serif;
 
-            min-height: 100vh;
+            min-height:
+                100vh;
 
-            color: #5f5870;
+            color:
+                var(--text);
+
+            overflow-x:
+                hidden;
+
 
             background:
+
+                radial-gradient(
+                    circle at 10% 15%,
+                    rgba(
+                        255,
+                        190,
+                        215,
+                        0.42
+                    )
+                    0 0 9%,
+                    transparent 24%
+                ),
+
+                radial-gradient(
+                    circle at 90% 10%,
+                    rgba(
+                        171,
+                        229,
+                        247,
+                        0.45
+                    ) 0 0 9%,
+                    transparent 25%
+                ),
+
+                radial-gradient(
+                    circle at 50% 100%,
+                    rgba(
+                        210,
+                        194,
+                        247,
+                        0.34
+                    ),
+                    transparent 35%
+                ),
+
                 linear-gradient(
                     135deg,
-                    #fff5fa 0%,
-                    #eef9ff 45%,
-                    #f5f0ff 100%
+                    #fff7fb,
+                    #f1fbff 50%,
+                    #f7f2ff
                 );
+
+            position:
+                relative;
+
+        }
+
+
+        /* =====================================================
+           DECORATION LAYER
+        ====================================================== */
+
+        body::before {
+
+            content:
+                "";
+
+            position:
+                fixed;
+
+            inset:
+                0;
+
+            pointer-events:
+                none;
+
+            background:
+
+                radial-gradient(
+                    circle at 20% 30%,
+                    rgba(
+                        255,
+                        255,
+                        255,
+                        0.72
+                    ) 0 3px,
+                    transparent 4px
+                );
+
+            background-size:
+                70px 70px;
+
+            opacity:
+                0.45;
+
+        }
+
+
+        .floating-decoration {
+
+            position:
+                fixed;
+
+            top:
+                105%;
+
+            z-index:
+                1;
+
+            pointer-events:
+                none;
+
+            color:
+                rgba(
+                    190,
+                    154,
+                    207,
+                    0.52
+                );
+
+            animation:
+                floatUp 14s linear forwards;
+
+            text-shadow:
+                0 4px 10px
+                rgba(
+                    160,
+                    130,
+                    180,
+                    0.15
+                );
+
+        }
+
+
+        @keyframes floatUp {
+
+            0% {
+
+                transform:
+                    translateY(0)
+                    rotate(0deg);
+
+                opacity:
+                    0;
+
+            }
+
+
+            10% {
+
+                opacity:
+                    1;
+
+            }
+
+
+            70% {
+
+                opacity:
+                    0.75;
+
+            }
+
+
+            100% {
+
+                transform:
+                    translateY(-120vh)
+                    rotate(180deg);
+
+                opacity:
+                    0;
+
+            }
 
         }
 
@@ -1022,44 +1782,58 @@
 
         header {
 
-            padding: 22px 30px;
+            padding:
+                20px 30px;
 
-            display: flex;
+            display:
+                flex;
 
             justify-content:
                 space-between;
 
-            align-items: center;
+            align-items:
+                center;
+
+            gap:
+                20px;
 
             background:
                 rgba(
                     255,
                     255,
                     255,
-                    0.86
+                    0.82
                 );
 
             border-bottom:
                 1px solid
-                #f0dce8;
-
-            box-shadow:
-                0 5px 25px
                 rgba(
-                    180,
-                    150,
-                    180,
-                    0.10
+                    220,
+                    195,
+                    220,
+                    0.6
                 );
 
-            position: sticky;
-
-            top: 0;
-
-            z-index: 10;
+            box-shadow:
+                0 8px 30px
+                rgba(
+                    180,
+                    155,
+                    185,
+                    0.11
+                );
 
             backdrop-filter:
-                blur(15px);
+                blur(18px);
+
+            position:
+                sticky;
+
+            top:
+                0;
+
+            z-index:
+                50;
 
         }
 
@@ -1070,122 +1844,180 @@
 
         .brand {
 
-            display: flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            gap: 15px;
+            gap:
+                15px;
 
         }
 
 
         .logo {
 
-            width: 58px;
+            width:
+                60px;
 
-            height: 58px;
+            height:
+                60px;
 
-            border-radius: 20px;
+            border-radius:
+                21px;
 
-            display: flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            justify-content: center;
+            justify-content:
+                center;
 
-            font-size: 29px;
+            font-size:
+                30px;
 
             background:
+
                 linear-gradient(
                     135deg,
-                    #bdeeff,
-                    #cbbcff
+                    #bfefff,
+                    #decdfc
                 );
 
             box-shadow:
-                0 8px 20px
+
+                0 10px 25px
                 rgba(
                     170,
                     145,
-                    210,
-                    0.22
+                    205,
+                    0.23
                 );
+
+            animation:
+                logoFloat 4s ease-in-out infinite;
+
+        }
+
+
+        @keyframes logoFloat {
+
+            0%,
+            100% {
+
+                transform:
+                    translateY(0)
+                    rotate(-2deg);
+
+            }
+
+
+            50% {
+
+                transform:
+                    translateY(-4px)
+                    rotate(2deg);
+
+            }
 
         }
 
 
         .brand h1 {
 
-            font-size: 25px;
+            font-size:
+                25px;
 
-            font-weight: 700;
+            color:
+                #665f76;
 
-            color: #69627d;
+            font-weight:
+                750;
 
         }
 
 
         .brand p {
 
-            color: #aaa1b5;
+            margin-top:
+                4px;
 
-            margin-top: 4px;
+            font-size:
+                13px;
 
-            font-size: 13px;
+            color:
+                var(--text-soft);
 
         }
 
 
         /* =====================================================
-           CONNECTION
+           LIVE STATUS
         ====================================================== */
 
         .connection {
 
-            display: flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            gap: 9px;
+            gap:
+                10px;
 
             padding:
                 10px 17px;
 
-            border-radius: 30px;
+            border-radius:
+                999px;
 
             background:
-                #ffffff;
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.95
+                );
 
             border:
                 1px solid
                 #eadfec;
 
-            color: #81798f;
-
-            font-size: 13px;
-
             box-shadow:
-                0 5px 15px
+                0 5px 18px
                 rgba(
                     170,
                     145,
                     180,
-                    0.10
+                    0.11
                 );
+
+            color:
+                #7f768b;
+
+            font-size:
+                13px;
 
         }
 
 
         .status-dot {
 
-            width: 10px;
+            width:
+                11px;
 
-            height: 10px;
+            height:
+                11px;
 
-            border-radius: 50%;
+            border-radius:
+                50%;
 
             background:
-                #f5a6b8;
+                #f2a6b8;
 
         }
 
@@ -1196,13 +2028,62 @@
                 #8ed8b0;
 
             box-shadow:
-                0 0 10px
+                0 0 0 0
                 rgba(
                     142,
                     216,
                     176,
-                    0.8
+                    0.65
                 );
+
+            animation:
+                statusPulse 2s infinite;
+
+        }
+
+
+        @keyframes statusPulse {
+
+            0% {
+
+                box-shadow:
+                    0 0 0 0
+                    rgba(
+                        142,
+                        216,
+                        176,
+                        0.65
+                    );
+
+            }
+
+
+            70% {
+
+                box-shadow:
+                    0 0 0 10px
+                    rgba(
+                        142,
+                        216,
+                        176,
+                        0
+                    );
+
+            }
+
+
+            100% {
+
+                box-shadow:
+                    0 0 0 0
+                    rgba(
+                        142,
+                        216,
+                        176,
+                        0
+                    );
+
+            }
 
         }
 
@@ -1213,109 +2094,247 @@
 
         main {
 
-            max-width: 1400px;
+            max-width:
+                1450px;
 
-            margin: auto;
+            margin:
+                0 auto;
 
-            padding: 32px;
+            padding:
+                34px;
+
+            position:
+                relative;
+
+            z-index:
+                2;
 
         }
 
 
         /* =====================================================
-           TITLE
+           TOP BAR
         ====================================================== */
 
-        .page-title {
+        .welcome {
 
-            margin-bottom: 22px;
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                flex-end;
+
+            gap:
+                20px;
+
+            margin-bottom:
+                25px;
 
         }
 
 
         .page-title h2 {
 
-            font-size: 23px;
+            font-size:
+                24px;
 
-            color: #6d657e;
+            color:
+                #6f667d;
 
         }
 
 
         .page-title p {
 
-            margin-top: 6px;
+            color:
+                var(--text-soft);
 
-            color: #aaa1b5;
+            margin-top:
+                7px;
 
-            font-size: 14px;
-
-        }
-
-
-        /* =====================================================
-           SENSOR CARDS
-        ====================================================== */
-
-        .cards {
-
-            display: grid;
-
-            grid-template-columns:
-                repeat(3, 1fr);
-
-            gap: 20px;
+            font-size:
+                14px;
 
         }
 
 
-        .card {
+        .clock-box {
 
-            position: relative;
+            padding:
+                12px 18px;
 
-            overflow: hidden;
+            min-width:
+                145px;
 
-            padding: 24px;
+            text-align:
+                center;
 
-            min-height: 175px;
-
-            border-radius: 25px;
+            border-radius:
+                18px;
 
             background:
                 rgba(
                     255,
                     255,
                     255,
-                    0.82
+                    0.78
                 );
 
             border:
                 1px solid
-                #eee1ed;
+                #eee2ed;
 
             box-shadow:
-                0 8px 25px
+                0 7px 20px
                 rgba(
                     180,
                     155,
                     185,
-                    0.12
+                    0.10
                 );
-
-            transition:
-                transform 0.25s ease,
-                box-shadow 0.25s ease;
 
         }
 
 
-        .card:hover {
+        .clock-label {
 
-            transform:
-                translateY(-5px);
+            font-size:
+                10px;
+
+            color:
+                #b1a8b7;
+
+            letter-spacing:
+                1px;
+
+        }
+
+
+        #digitalClock {
+
+            margin-top:
+                4px;
+
+            font-size:
+                19px;
+
+            font-weight:
+                700;
+
+            color:
+                #7e7190;
+
+        }
+
+
+        /* =====================================================
+           SENSOR GRID
+        ====================================================== */
+
+        .cards {
+
+            display:
+                grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap:
+                20px;
+
+        }
+
+
+        /* =====================================================
+           SENSOR CARD
+        ====================================================== */
+
+        .sensor-card {
+
+            position:
+                relative;
+
+            overflow:
+                hidden;
+
+            min-height:
+                185px;
+
+            padding:
+                25px;
+
+            border-radius:
+                26px;
+
+            border:
+                1px solid
+                rgba(
+                    235,
+                    220,
+                    238,
+                    0.9
+                );
 
             box-shadow:
-                0 14px 32px
+                0 10px 30px
+                rgba(
+                    180,
+                    155,
+                    185,
+                    0.13
+                );
+
+            transition:
+                transform 0.28s ease,
+                box-shadow 0.28s ease;
+
+        }
+
+
+        .sensor-card::after {
+
+            content:
+                "";
+
+            position:
+                absolute;
+
+            width:
+                120px;
+
+            height:
+                120px;
+
+            border-radius:
+                50%;
+
+            top:
+                -50px;
+
+            right:
+                -35px;
+
+            background:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.33
+                );
+
+        }
+
+
+        .sensor-card:hover {
+
+            transform:
+                translateY(-7px);
+
+            box-shadow:
+                0 18px 38px
                 rgba(
                     180,
                     155,
@@ -1326,76 +2345,108 @@
         }
 
 
-        /* =====================================================
-           CARD PASTEL COLORS
-        ====================================================== */
+        .sensor-card.data-pulse {
 
-        .card:nth-child(1) {
+            animation:
+                dataPulse 0.65s ease;
+
+        }
+
+
+        @keyframes dataPulse {
+
+            0% {
+
+                transform:
+                    scale(1);
+
+            }
+
+
+            45% {
+
+                transform:
+                    scale(1.012);
+
+            }
+
+
+            100% {
+
+                transform:
+                    scale(1);
+
+            }
+
+        }
+
+
+        .temperature-card {
 
             background:
                 linear-gradient(
                     135deg,
-                    #fff9f4,
-                    #fff0f5
+                    #fff9f7,
+                    #ffeef5
                 );
 
         }
 
 
-        .card:nth-child(2) {
+        .humidity-card {
 
             background:
                 linear-gradient(
                     135deg,
-                    #f2fbff,
-                    #e9f7ff
+                    #f4fcff,
+                    #e7f7ff
                 );
 
         }
 
 
-        .card:nth-child(3) {
+        .air-card {
 
             background:
                 linear-gradient(
                     135deg,
-                    #f8f4ff,
-                    #f0ebff
+                    #faf7ff,
+                    #f0eaff
                 );
 
         }
 
 
-        .card:nth-child(4) {
+        .light-card {
 
             background:
                 linear-gradient(
                     135deg,
-                    #fffaf0,
-                    #fff4d9
+                    #fffdf3,
+                    #fff5d8
                 );
 
         }
 
 
-        .card:nth-child(5) {
+        .noise-card {
 
             background:
                 linear-gradient(
                     135deg,
-                    #f4fbf8,
-                    #e8f8f1
+                    #f5fcf8,
+                    #e8f8ef
                 );
 
         }
 
 
-        .card:nth-child(6) {
+        .pressure-card {
 
             background:
                 linear-gradient(
                     135deg,
-                    #f7f4ff,
+                    #faf8ff,
                     #eeeaff
                 );
 
@@ -1404,67 +2455,345 @@
 
         .card-top {
 
-            display: flex;
+            display:
+                flex;
 
             justify-content:
                 space-between;
 
-            align-items: center;
+            align-items:
+                center;
 
         }
 
 
         .card-title {
 
-            color: #81798f;
+            font-size:
+                14px;
 
-            font-size: 14px;
+            font-weight:
+                600;
 
-            font-weight: 500;
+            color:
+                #837a90;
 
         }
 
 
-        .icon {
+        .icon-wrap {
 
-            font-size: 31px;
+            width:
+                48px;
 
-            filter:
-                drop-shadow(
-                    0 4px 5px
-                    rgba(
-                        120,
-                        100,
-                        130,
-                        0.12
-                    )
+            height:
+                48px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            border-radius:
+                16px;
+
+            background:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.55
                 );
+
+            box-shadow:
+                0 5px 12px
+                rgba(
+                    150,
+                    130,
+                    150,
+                    0.10
+                );
+
+            font-size:
+                27px;
+
+            animation:
+                iconFloat 3.3s ease-in-out infinite;
+
+        }
+
+
+        @keyframes iconFloat {
+
+            0%,
+            100% {
+
+                transform:
+                    translateY(0);
+
+            }
+
+
+            50% {
+
+                transform:
+                    translateY(-4px);
+
+            }
 
         }
 
 
         .value {
 
-            margin-top: 19px;
+            margin-top:
+                20px;
 
-            font-size: 34px;
+            font-size:
+                35px;
 
-            font-weight: 700;
+            line-height:
+                1;
 
-            letter-spacing: -1px;
+            font-weight:
+                760;
 
-            color: #665f78;
+            color:
+                #665f78;
 
         }
 
 
         .thai-name {
 
-            margin-top: 7px;
+            margin-top:
+                9px;
 
-            color: #aaa1b5;
+            color:
+                #aaa2b0;
 
-            font-size: 13px;
+            font-size:
+                13px;
+
+        }
+
+
+        .trend {
+
+            display:
+                inline-block;
+
+            margin-top:
+                14px;
+
+            padding:
+                5px 10px;
+
+            border-radius:
+                999px;
+
+            font-size:
+                11px;
+
+            background:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.62
+                );
+
+        }
+
+
+        .trend.up {
+
+            color:
+                #63ae89;
+
+        }
+
+
+        .trend.down {
+
+            color:
+                #d68b9d;
+
+        }
+
+
+        .trend.neutral {
+
+            color:
+                #a29aa8;
+
+        }
+
+
+        /* =====================================================
+           COMFORT PANEL
+        ====================================================== */
+
+        .comfort-panel {
+
+            margin-top:
+                25px;
+
+            padding:
+                23px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                18px;
+
+            border-radius:
+                26px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(
+                        255,
+                        255,
+                        255,
+                        0.90
+                    ),
+                    rgba(
+                        255,
+                        246,
+                        252,
+                        0.88
+                    )
+                );
+
+            border:
+                1px solid
+                #eedfea;
+
+            box-shadow:
+                0 10px 30px
+                rgba(
+                    180,
+                    155,
+                    185,
+                    0.11
+                );
+
+        }
+
+
+        .comfort-icon {
+
+            width:
+                66px;
+
+            height:
+                66px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            flex-shrink:
+                0;
+
+            border-radius:
+                22px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #ffdce8,
+                    #e8ddff
+                );
+
+            font-size:
+                31px;
+
+            animation:
+                comfortFloat 3s ease-in-out infinite;
+
+        }
+
+
+        @keyframes comfortFloat {
+
+            0%,
+            100% {
+
+                transform:
+                    translateY(0)
+                    rotate(-2deg);
+
+            }
+
+
+            50% {
+
+                transform:
+                    translateY(-4px)
+                    rotate(2deg);
+
+            }
+
+        }
+
+
+        .comfort-label {
+
+            color:
+                #b2a8b7;
+
+            font-size:
+                11px;
+
+            letter-spacing:
+                0.8px;
+
+        }
+
+
+        #comfortTitle {
+
+            margin-top:
+                4px;
+
+            font-size:
+                18px;
+
+            font-weight:
+                700;
+
+            color:
+                #746b80;
+
+        }
+
+
+        #comfortText {
+
+            margin-top:
+                3px;
+
+            font-size:
+                13px;
+
+            color:
+                #a69daa;
 
         }
 
@@ -1475,171 +2804,256 @@
 
         .status-panel {
 
-            margin-top: 25px;
+            margin-top:
+                20px;
 
-            padding: 22px;
-
-            display: grid;
+            display:
+                grid;
 
             grid-template-columns:
                 repeat(4, 1fr);
 
-            gap: 20px;
+            gap:
+                15px;
 
-            border-radius: 23px;
+        }
+
+
+        .status-item {
+
+            padding:
+                18px;
+
+            border-radius:
+                22px;
 
             background:
                 rgba(
                     255,
                     255,
                     255,
-                    0.82
+                    0.76
                 );
 
             border:
                 1px solid
-                #eee1ed;
+                #ece0ed;
 
             box-shadow:
-                0 8px 25px
+                0 7px 22px
                 rgba(
                     180,
                     155,
                     185,
-                    0.10
+                    0.08
                 );
-
-        }
-
-
-        .status-item span {
-
-            display: block;
 
         }
 
 
         .status-label {
 
-            color: #b3a9bb;
+            font-size:
+                10px;
 
-            font-size: 11px;
+            letter-spacing:
+                0.9px;
 
-            margin-bottom: 6px;
-
-            letter-spacing: 0.5px;
+            color:
+                #b3a9b8;
 
         }
 
 
         .status-value {
 
-            color: #726a80;
+            display:
+                block;
 
-            font-size: 15px;
+            margin-top:
+                6px;
 
-            font-weight: 500;
+            font-size:
+                14px;
+
+            font-weight:
+                600;
+
+            color:
+                #776f83;
 
         }
 
 
         /* =====================================================
-           CHART TITLE
+           HISTORY TITLE
         ====================================================== */
 
         .charts-title {
 
-            margin-top: 35px;
+            margin-top:
+                35px;
 
-            margin-bottom: 18px;
+            margin-bottom:
+                18px;
 
         }
 
 
         .charts-title h2 {
 
-            font-size: 21px;
+            font-size:
+                21px;
 
-            color: #6d657e;
+            color:
+                #6d657e;
 
         }
 
 
         .charts-title p {
 
-            color: #aaa1b5;
+            margin-top:
+                5px;
 
-            font-size: 13px;
+            color:
+                #aaa2b0;
 
-            margin-top: 5px;
+            font-size:
+                13px;
 
         }
 
 
         /* =====================================================
-           CHARTS
+           CHART GRID
         ====================================================== */
 
         .charts {
 
-            display: grid;
+            display:
+                grid;
 
             grid-template-columns:
                 repeat(2, 1fr);
 
-            gap: 20px;
+            gap:
+                20px;
 
         }
 
 
         .chart-card {
 
-            height: 320px;
+            height:
+                320px;
 
-            padding: 20px;
+            padding:
+                20px;
 
-            border-radius: 23px;
+            border-radius:
+                25px;
 
             background:
                 rgba(
                     255,
                     255,
                     255,
-                    0.86
+                    0.84
                 );
 
             border:
                 1px solid
-                #eee1ed;
+                #ede1ed;
 
             box-shadow:
-                0 8px 25px
+                0 9px 27px
                 rgba(
                     180,
                     155,
                     185,
-                    0.10
+                    0.09
+                );
+
+            transition:
+                transform 0.25s ease,
+                box-shadow 0.25s ease;
+
+        }
+
+
+        .chart-card:hover {
+
+            transform:
+                translateY(-4px);
+
+            box-shadow:
+                0 14px 32px
+                rgba(
+                    180,
+                    155,
+                    185,
+                    0.15
                 );
 
         }
 
 
-        .chart-card h3 {
+        .chart-header {
 
-            font-size: 15px;
+            display:
+                flex;
 
-            margin-bottom: 10px;
+            justify-content:
+                space-between;
 
-            color: #7b7289;
+            align-items:
+                center;
+
+            margin-bottom:
+                10px;
+
+        }
+
+
+        .chart-header h3 {
+
+            color:
+                #7c7389;
+
+            font-size:
+                15px;
+
+        }
+
+
+        .chart-badge {
+
+            padding:
+                5px 9px;
+
+            border-radius:
+                999px;
+
+            background:
+                #faf4fb;
+
+            color:
+                #aaa0b1;
+
+            font-size:
+                10px;
 
         }
 
 
         .chart {
 
-            height: 255px;
+            position:
+                relative;
 
-            position: relative;
+            height:
+                255px;
 
         }
 
@@ -1650,13 +3064,17 @@
 
         footer {
 
-            text-align: center;
+            padding:
+                35px 20px 42px;
 
-            padding: 30px;
+            text-align:
+                center;
 
-            color: #aaa1b5;
+            color:
+                #aaa2b0;
 
-            font-size: 12px;
+            font-size:
+                12px;
 
         }
 
@@ -1665,9 +3083,19 @@
            RESPONSIVE
         ====================================================== */
 
-        @media (max-width: 1000px) {
+        @media (
+            max-width: 1050px
+        ) {
 
             .cards {
+
+                grid-template-columns:
+                    repeat(2, 1fr);
+
+            }
+
+
+            .status-panel {
 
                 grid-template-columns:
                     repeat(2, 1fr);
@@ -1682,22 +3110,17 @@
 
             }
 
-
-            .status-panel {
-
-                grid-template-columns:
-                    repeat(2, 1fr);
-
-            }
-
         }
 
 
-        @media (max-width: 650px) {
+        @media (
+            max-width: 700px
+        ) {
 
             header {
 
-                padding: 18px;
+                padding:
+                    16px 18px;
 
                 flex-direction:
                     column;
@@ -1705,21 +3128,32 @@
                 align-items:
                     flex-start;
 
-                gap: 15px;
-
-            }
-
-
-            .brand h1 {
-
-                font-size: 20px;
-
             }
 
 
             main {
 
-                padding: 20px;
+                padding:
+                    22px 16px;
+
+            }
+
+
+            .welcome {
+
+                flex-direction:
+                    column;
+
+                align-items:
+                    stretch;
+
+            }
+
+
+            .clock-box {
+
+                width:
+                    100%;
 
             }
 
@@ -1740,16 +3174,65 @@
             }
 
 
+            .comfort-panel {
+
+                align-items:
+                    flex-start;
+
+            }
+
+
             .chart-card {
 
-                height: 290px;
+                height:
+                    295px;
 
             }
 
 
             .chart {
 
-                height: 225px;
+                height:
+                    225px;
+
+            }
+
+
+            .brand h1 {
+
+                font-size:
+                    20px;
+
+            }
+
+
+            .brand p {
+
+                font-size:
+                    12px;
+
+            }
+
+        }
+
+
+        @media (
+            prefers-reduced-motion: reduce
+        ) {
+
+            * {
+
+                animation-duration:
+                    0.01ms !important;
+
+                animation-iteration-count:
+                    1 !important;
+
+                transition-duration:
+                    0.01ms !important;
+
+                scroll-behavior:
+                    auto !important;
 
             }
 
@@ -1815,18 +3298,36 @@
 
 
         <!-- =================================================
-             PAGE TITLE
+             TITLE + CLOCK
         ================================================== -->
 
-        <div class="page-title">
+        <div class="welcome">
 
-            <h2>
-                🌷 Sensor Monitoring
-            </h2>
+            <div class="page-title">
 
-            <p>
-                ระบบตรวจสอบข้อมูลเซ็นเซอร์แบบ Realtime
-            </p>
+                <h2>
+                    🌷 Sensor Monitoring
+                </h2>
+
+                <p>
+                    ระบบตรวจสอบข้อมูลเซ็นเซอร์แบบ Realtime
+                    สดใสและละมุนในสไตล์ Pastel Garden
+                </p>
+
+            </div>
+
+
+            <div class="clock-box">
+
+                <div class="clock-label">
+                    CURRENT TIME
+                </div>
+
+                <div id="digitalClock">
+                    --:--:--
+                </div>
+
+            </div>
 
         </div>
 
@@ -1840,7 +3341,7 @@
 
             <!-- TEMPERATURE -->
 
-            <div class="card">
+            <div class="sensor-card temperature-card">
 
                 <div class="card-top">
 
@@ -1848,9 +3349,10 @@
                         Temperature
                     </span>
 
-                    <span class="icon">
+
+                    <div class="icon-wrap">
                         🌡️
-                    </span>
+                    </div>
 
                 </div>
 
@@ -1865,8 +3367,15 @@
 
 
                 <div class="thai-name">
-
                     อุณหภูมิ
+                </div>
+
+
+                <div
+                    id="temperatureTrend"
+                    class="trend neutral">
+
+                    • รอข้อมูล
 
                 </div>
 
@@ -1875,7 +3384,7 @@
 
             <!-- HUMIDITY -->
 
-            <div class="card">
+            <div class="sensor-card humidity-card">
 
                 <div class="card-top">
 
@@ -1883,9 +3392,10 @@
                         Humidity
                     </span>
 
-                    <span class="icon">
+
+                    <div class="icon-wrap">
                         💧
-                    </span>
+                    </div>
 
                 </div>
 
@@ -1900,8 +3410,15 @@
 
 
                 <div class="thai-name">
-
                     ความชื้นสัมพัทธ์
+                </div>
+
+
+                <div
+                    id="humidityTrend"
+                    class="trend neutral">
+
+                    • รอข้อมูล
 
                 </div>
 
@@ -1910,7 +3427,7 @@
 
             <!-- AIR QUALITY -->
 
-            <div class="card">
+            <div class="sensor-card air-card">
 
                 <div class="card-top">
 
@@ -1918,9 +3435,10 @@
                         Air Quality
                     </span>
 
-                    <span class="icon">
+
+                    <div class="icon-wrap">
                         🌸
-                    </span>
+                    </div>
 
                 </div>
 
@@ -1935,8 +3453,15 @@
 
 
                 <div class="thai-name">
-
                     คุณภาพอากาศ
+                </div>
+
+
+                <div
+                    id="airTrend"
+                    class="trend neutral">
+
+                    • รอข้อมูล
 
                 </div>
 
@@ -1945,7 +3470,7 @@
 
             <!-- LIGHT -->
 
-            <div class="card">
+            <div class="sensor-card light-card">
 
                 <div class="card-top">
 
@@ -1953,9 +3478,10 @@
                         Light
                     </span>
 
-                    <span class="icon">
+
+                    <div class="icon-wrap">
                         💡
-                    </span>
+                    </div>
 
                 </div>
 
@@ -1970,8 +3496,15 @@
 
 
                 <div class="thai-name">
-
                     ความเข้มแสง
+                </div>
+
+
+                <div
+                    id="lightTrend"
+                    class="trend neutral">
+
+                    • รอข้อมูล
 
                 </div>
 
@@ -1980,7 +3513,7 @@
 
             <!-- NOISE -->
 
-            <div class="card">
+            <div class="sensor-card noise-card">
 
                 <div class="card-top">
 
@@ -1988,9 +3521,10 @@
                         Noise
                     </span>
 
-                    <span class="icon">
+
+                    <div class="icon-wrap">
                         🎵
-                    </span>
+                    </div>
 
                 </div>
 
@@ -2005,8 +3539,15 @@
 
 
                 <div class="thai-name">
-
                     ระดับเสียง
+                </div>
+
+
+                <div
+                    id="noiseTrend"
+                    class="trend neutral">
+
+                    • รอข้อมูล
 
                 </div>
 
@@ -2015,7 +3556,7 @@
 
             <!-- PRESSURE -->
 
-            <div class="card">
+            <div class="sensor-card pressure-card">
 
                 <div class="card-top">
 
@@ -2023,9 +3564,10 @@
                         Pressure
                     </span>
 
-                    <span class="icon">
+
+                    <div class="icon-wrap">
                         🧭
-                    </span>
+                    </div>
 
                 </div>
 
@@ -2040,9 +3582,52 @@
 
 
                 <div class="thai-name">
-
                     ความดันอากาศ
+                </div>
 
+
+                <div
+                    id="pressureTrend"
+                    class="trend neutral">
+
+                    • รอข้อมูล
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             COMFORT
+        ================================================== -->
+
+        <div class="comfort-panel">
+
+            <div
+                id="comfortEmoji"
+                class="comfort-icon">
+
+                🌷
+
+            </div>
+
+
+            <div>
+
+                <div class="comfort-label">
+                    ENVIRONMENT SUMMARY
+                </div>
+
+
+                <div id="comfortTitle">
+                    กำลังรอข้อมูล
+                </div>
+
+
+                <div id="comfortText">
+                    ระบบกำลังเตรียมข้อมูลสภาพแวดล้อม
                 </div>
 
             </div>
@@ -2120,7 +3705,7 @@
 
 
         <!-- =================================================
-             HISTORY
+             CHART TITLE
         ================================================== -->
 
         <div class="charts-title">
@@ -2143,13 +3728,22 @@
         <div class="charts">
 
 
-            <!-- TEMPERATURE CHART -->
+            <!-- TEMPERATURE -->
 
             <div class="chart-card">
 
-                <h3>
-                    🌡️ Temperature
-                </h3>
+                <div class="chart-header">
+
+                    <h3>
+                        🌡️ Temperature
+                    </h3>
+
+                    <span class="chart-badge">
+                        LIVE DATA
+                    </span>
+
+                </div>
+
 
                 <div class="chart">
 
@@ -2162,13 +3756,22 @@
             </div>
 
 
-            <!-- HUMIDITY CHART -->
+            <!-- HUMIDITY -->
 
             <div class="chart-card">
 
-                <h3>
-                    💧 Humidity
-                </h3>
+                <div class="chart-header">
+
+                    <h3>
+                        💧 Humidity
+                    </h3>
+
+                    <span class="chart-badge">
+                        LIVE DATA
+                    </span>
+
+                </div>
+
 
                 <div class="chart">
 
@@ -2181,13 +3784,22 @@
             </div>
 
 
-            <!-- AIR QUALITY CHART -->
+            <!-- AIR -->
 
             <div class="chart-card">
 
-                <h3>
-                    🌸 Air Quality
-                </h3>
+                <div class="chart-header">
+
+                    <h3>
+                        🌸 Air Quality
+                    </h3>
+
+                    <span class="chart-badge">
+                        LIVE DATA
+                    </span>
+
+                </div>
+
 
                 <div class="chart">
 
@@ -2200,13 +3812,22 @@
             </div>
 
 
-            <!-- LIGHT CHART -->
+            <!-- LIGHT -->
 
             <div class="chart-card">
 
-                <h3>
-                    💡 Light
-                </h3>
+                <div class="chart-header">
+
+                    <h3>
+                        💡 Light
+                    </h3>
+
+                    <span class="chart-badge">
+                        LIVE DATA
+                    </span>
+
+                </div>
+
 
                 <div class="chart">
 
@@ -2219,13 +3840,22 @@
             </div>
 
 
-            <!-- NOISE CHART -->
+            <!-- NOISE -->
 
             <div class="chart-card">
 
-                <h3>
-                    🎵 Noise
-                </h3>
+                <div class="chart-header">
+
+                    <h3>
+                        🎵 Noise
+                    </h3>
+
+                    <span class="chart-badge">
+                        LIVE DATA
+                    </span>
+
+                </div>
+
 
                 <div class="chart">
 
@@ -2238,13 +3868,22 @@
             </div>
 
 
-            <!-- PRESSURE CHART -->
+            <!-- PRESSURE -->
 
             <div class="chart-card">
 
-                <h3>
-                    🧭 Pressure
-                </h3>
+                <div class="chart-header">
+
+                    <h3>
+                        🧭 Pressure
+                    </h3>
+
+                    <span class="chart-badge">
+                        LIVE DATA
+                    </span>
+
+                </div>
+
 
                 <div class="chart">
 
@@ -2277,6 +3916,8 @@
         • Firebase RTDB
 
         • GitHub Pages
+
+        🌸
 
     </footer>
 
